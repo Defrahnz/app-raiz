@@ -1,0 +1,35 @@
+name: Flutter CI - Unit test
+run-name: Deploy by @${{ github.actor }}
+on:
+    workflow_dispatch:
+    push:
+      branches: ["master"]
+    pull_request: 
+      branches: ["master"]
+      types: [labeled,opened, synchronize, reopened]
+
+jobs:
+    flutter_unit_test:
+      name: Run flutter test and analyze
+      runs-on: ubuntu-lastest
+      timeout-minutes: 20
+      steps:
+        - name: Branch Checkout
+          uses: actions/checkout@v3
+
+        - name: Setup Flutter SDK
+          uses: subosito/flutter-action@v2
+          with:
+            channel: 'stable'
+            flutter-version: 3.32.7
+            cache: true
+        - name: Get Packages
+          run: flutter pub get
+        - name: Errors and Software Debt
+          run: flutter analyze --fatal-warnings
+        - name: Run Unit test
+          run: flutter test 
+
+
+
+
