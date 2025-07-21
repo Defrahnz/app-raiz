@@ -1,4 +1,4 @@
-name: Flutter CI - Unit test
+name: Android CD - Build APK
 run-name: Deploy by @${{ github.actor }}
 on:
     workflow_dispatch:
