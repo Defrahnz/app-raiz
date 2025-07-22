@@ -1,47 +1,56 @@
-name: Flutter CI - Unit test
+name: Android CD - Build APK & AppBundle
 run-name: Deploy by @${{ github.actor }}
+
 on:
-    workflow_dispatch:
-    push:
-      branches: ["master"]
-    pull_request: 
-      branches: ["master"]
-      types: [labeled,opened, synchronize, reopened]
-env: 
-    CONDITIONAL_BRANCH_MASTER: "refs/heads/master"
+  workflow_dispatch:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["master"]
+    types: [labeled, opened, synchronize, reopened]
 
 jobs:
-    build:
-        name: Android Flutter Build
-        runs-on: ubuntu-latest
-        timeout-minutes: 60.
-        steps:
-            - name: Checkout Repository
-              uses: actions/checkout@v3
-            
-            - name: Setup Java JDK
-              uses: actions/setup-java@v3
-              with:
-                 distribution: 'temurin' # See 'Supported distributions' for available options
-                 java-version: '21'
-                 architecture: 'x64' # defaults to 'x64'
-                 cache: 'gradle'
-            
-            - name: Setup Flutter SDK
-              uses: subosito/flutter-action@v2
-              with:
-                channel: 'stable'
-                flutter-version: 3.32.7
-                cache: true
-            - name: Flutter Pub Get
-              run: /
-                flutter pub get
-                flutter clean
-                flutter build apk
-                flutter build appbundle
-            - name: Upload Android Release
-              uses: actions/upload-artifact@v2
-              with:
-                name: android-release
-                path: build
+  build:
+    name: Android Flutter Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4 # Versión actualizada
 
+      - name: Setup Java JDK
+        uses: actions/setup-java@v4 # Versión actualizada
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Flutter Packages
+        run: flutter pub get
+
+      - name: Clean Flutter Project
+        run: flutter clean
+
+      - name: Build Flutter APK
+        run: flutter build apk --release
+
+      - name: Build Flutter AppBundle
+        run: flutter build appbundle --release
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload AppBundle Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-appbundle
+          path: build/app/outputs/bundle/release/app-release.aab
