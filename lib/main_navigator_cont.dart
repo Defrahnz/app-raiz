@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'views/explore_screen.dart';
 import 'views/profile_screen.dart';
+import 'views/reservations_screen.dart';
 
 class MainNavigationContainer extends StatefulWidget {
   const MainNavigationContainer({super.key});
@@ -18,7 +19,7 @@ class _MainNavigationContainerState extends State<MainNavigationContainer> {
     ExploreScreen(), // Tu vista de exploración
     // A continuación, placeholders para las otras vistas
     Center(child: Text('Vista de Favoritos')),
-    Center(child: Text('Vista de Reservados')),
+    ReservationsScreen(),
     ProfileScreen(), // La nueva vista de perfil
   ];
 
