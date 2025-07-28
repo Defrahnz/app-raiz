@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:app_raiz/views/place_details.dart';
 import 'dart:ui'; // Para usar ImageFilter.blur
 
 // --- Modelo de datos simple para los lugares ---
-// En un futuro, este modelo corresponderá a la estructura de tu API.
+// (Este modelo se puede mover a su propio archivo en el futuro)
 class Place {
   final String name;
   final String imageUrl;
@@ -18,7 +19,6 @@ class Place {
 }
 
 // --- Datos de ejemplo (Mock Data) ---
-// Reemplazarás esta lista con los datos de tu API.
 final List<Place> popularPlaces = [
   Place(
     name: 'Cerro del Muerto',
@@ -61,7 +61,6 @@ final List<Place> recommendedPlaces = [
   ),
 ];
 
-// --- Widget principal de la pantalla de exploración ---
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
 
@@ -75,10 +74,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Para un futuro: Cuando integres la API, puedes envolver este Scaffold
-    // en un FutureBuilder para mostrar un indicador de carga mientras
-    // se obtienen los datos.
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: _buildAppBar(),
@@ -89,27 +84,24 @@ class _ExploreScreenState extends State<ExploreScreen> {
           const SizedBox(height: 20),
           _buildCategoryTabs(),
           const SizedBox(height: 30),
-          _buildSectionHeader('Popular', () {
-            print('Ver todo lo Popular');
-          }),
+          _buildSectionHeader('Popular', () {}),
           const SizedBox(height: 15),
           _buildHorizontalPlaceList(popularPlaces, isPopular: true),
           const SizedBox(height: 30),
-          _buildSectionHeader('Recommended', () {
-            print('Ver todo lo Recomendado');
-          }),
+          _buildSectionHeader('Recommended', () {}),
           const SizedBox(height: 15),
           _buildHorizontalPlaceList(recommendedPlaces, isPopular: false),
         ],
       ),
-      // Puedes agregar tu BottomNavigationBar aquí si lo deseas
     );
   }
 
+  // ... (Los widgets _buildAppBar, _buildSearchBar, _buildCategoryTabs, y _buildSectionHeader no cambian) ...
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
       elevation: 0,
       backgroundColor: Colors.white,
+      automaticallyImplyLeading: false, // Para no mostrar la flecha de regreso
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -236,159 +228,185 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
+  // --- PASO 2: ACTUALIZAR LA TARJETA POPULAR ---
   Widget _buildPopularCard(Place place) {
-    return Container(
-      width: 160,
-      margin: const EdgeInsets.only(right: 15),
-      child: Stack(
-        children: [
-          // Imagen de fondo
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Image.network(
-              place.imageUrl,
-              height: 240,
-              width: 160,
-              fit: BoxFit.cover,
-              // Fallback en caso de error de carga
-              errorBuilder: (context, error, stackTrace) =>
-                  const Icon(Icons.image, size: 50, color: Colors.grey),
-            ),
+    // Se envuelve el Container en un GestureDetector para hacerlo interactivo
+    return GestureDetector(
+      onTap: () {
+        // Al tocar, se navega a la pantalla de detalles pasando el objeto 'place'
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlaceDetailsScreen(place: place),
           ),
-          // Contenido superpuesto
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(20),
-                gradient: LinearGradient(
-                  colors: [Colors.black.withOpacity(0.8), Colors.transparent],
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.center,
+        );
+      },
+      child: Container(
+        width: 160,
+        margin: const EdgeInsets.only(right: 15),
+        child: Stack(
+          // El contenido de la tarjeta no cambia
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Image.network(
+                place.imageUrl,
+                height: 240,
+                width: 160,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    const Icon(Icons.image, size: 50, color: Colors.grey),
+              ),
+            ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: LinearGradient(
+                    colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.center,
+                  ),
                 ),
               ),
             ),
-          ),
-          // Textos y rating
-          Positioned(
-            bottom: 15,
-            left: 15,
-            right: 15,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  place.name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            Positioned(
+              bottom: 15,
+              left: 15,
+              right: 15,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    place.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star, color: Colors.yellow, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          place.rating.toString(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.favorite_border,
+                      color: Colors.white,
+                      size: 20,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 5),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- PASO 3: ACTUALIZAR LA TARJETA RECOMENDADA ---
+  Widget _buildRecommendedCard(Place place) {
+    // También se envuelve en un GestureDetector
+    return GestureDetector(
+      onTap: () {
+        // Y se le añade la misma lógica de navegación
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PlaceDetailsScreen(place: place),
+          ),
+        );
+      },
+      child: Container(
+        width: 220,
+        margin: const EdgeInsets.only(right: 15.0),
+        child: Column(
+          // El contenido de la tarjeta no cambia
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(20),
+                    child: Image.network(
+                      place.imageUrl,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const Icon(Icons.image, size: 50, color: Colors.grey),
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.star, color: Colors.yellow, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        place.rating.toString(),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Text(
+                        place.duration,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 12,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-          // Botón de favorito
-          Positioned(
-            top: 10,
-            right: 10,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(30),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                child: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.favorite_border,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
+                ],
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecommendedCard(Place place) {
-    return Container(
-      width: 220,
-      margin: const EdgeInsets.only(right: 15.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Image.network(
-                    place.imageUrl,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.image, size: 50, color: Colors.grey),
-                  ),
-                ),
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Text(
-                      place.duration,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 10),
+            Text(
+              place.name,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            place.name,
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
