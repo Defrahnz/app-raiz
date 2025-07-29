@@ -4,9 +4,9 @@ run-name: Deploy by @${{ github.actor }}
 on:
   workflow_dispatch:
   push:
-    branches: ["master"]
+    branches: ["master","team/team-*"]
   pull_request:
-    branches: ["master"]
+    branches: ["master","team/team-*"]
     types: [labeled, opened, synchronize, reopened]
 
 jobs:
@@ -23,6 +23,9 @@ jobs:
         with:
           channel: 'stable'
           cache: true
+
+      - name: Create .env file
+        run: echo "GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}" > .env
 
       - name: Get Packages
         run: flutter pub get
