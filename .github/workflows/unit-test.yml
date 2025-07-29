@@ -4,9 +4,9 @@ run-name: Deploy by @${{ github.actor }}
 on:
   workflow_dispatch:
   push:
-    branches: ["master"]
+    branches: ["master","team/team-*"]
   pull_request:
-    branches: ["master"]
+    branches: ["master","team/team-*"]
     types: [labeled, opened, synchronize, reopened]
 
 jobs:
