@@ -1,15 +1,24 @@
 import 'package:flutter/material.dart';
-// Importa el nuevo contenedor de navegación
-import 'main_navigator_cont.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart';
+import 'models/reservations_provider.dart';
+import './views/home_screen.dart';
 
 void main() async {
   await dotenv.load(fileName: ".env");
-  runApp(const MyApp());
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ReservationsProvider()),
+      ],
+      child: const MyApp(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -19,8 +28,8 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         visualDensity: VisualDensity.adaptivePlatformDensity,
       ),
-      // Cambia el home para que apunte al nuevo widget con la barra de navegación
-      home: const MainNavigationContainer(),
+      // Ahora iniciamos con la splash screen
+      home: const HomeScreen(),
     );
   }
 }
