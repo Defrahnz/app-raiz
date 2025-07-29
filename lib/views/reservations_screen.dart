@@ -1,88 +1,17 @@
 import 'package:flutter/material.dart';
-
-// Modelo de datos para una reservación.
-// En un futuro, esto vendrá de tu API.
-class Reservation {
-  final String localizador;
-  final String titular;
-  final String hotel;
-  final String checkIn;
-  final String fechaReserva;
-  final String caducidad;
-  final double total;
-  final bool isActive;
-
-  Reservation({
-    required this.localizador,
-    required this.titular,
-    required this.hotel,
-    required this.checkIn,
-    required this.fechaReserva,
-    required this.caducidad,
-    required this.total,
-    required this.isActive,
-  });
-}
-
-// Datos de ejemplo para mostrar en la lista.
-final List<Reservation> mockReservations = [
-  Reservation(
-    localizador: 'AALI-S6Q7H2',
-    titular: 'Luz Maria Lopez Figueroa',
-    hotel: 'La Posada and Beach Club | La Paz',
-    checkIn: '2025-07-22',
-    fechaReserva: '2025-07-14 16:55',
-    caducidad: '-',
-    total: 14578.59,
-    isActive: true,
-  ),
-  Reservation(
-    localizador: 'ANCH-P1F5K7',
-    titular: 'Maria Clementina Jimenez Rojas',
-    hotel: 'Decameron Isla Coral Guayabitos',
-    checkIn: '2025-06-29',
-    fechaReserva: '2025-06-17 19:59',
-    caducidad: '-',
-    total: 26915.60,
-    isActive: true,
-  ),
-  Reservation(
-    localizador: 'AINT-T5E1I2',
-    titular: 'Eva Gordillo Garay',
-    hotel: 'Internacional | Traslado Hotel',
-    checkIn: '2025-06-24',
-    fechaReserva: '2025-06-16 18:42',
-    caducidad: '-',
-    total: 950.00,
-    isActive: true,
-  ),
-  Reservation(
-    localizador: 'ANCH-X1H1Q4',
-    titular: 'Norma Yuliana Salas Rosales',
-    hotel: 'Crown Paradise Golden All Inclusive',
-    checkIn: '2026-01-08',
-    fechaReserva: '2025-05-31 15:24',
-    caducidad: '12-JUN-25',
-    total: 0.00,
-    isActive: false,
-  ),
-  Reservation(
-    localizador: 'AINT-H8R4Y9',
-    titular: 'Eva Gordillo Garay',
-    hotel: 'Grand Bavaro Princess All Inclusive',
-    checkIn: '2025-06-17',
-    fechaReserva: '2025-05-29 19:17',
-    caducidad: '03-JUN-25',
-    total: 39290.75,
-    isActive: false,
-  ),
-];
+import 'package:provider/provider.dart';
+import '../models/reservations.dart';
+import '../models/reservations_provider.dart';
 
 class ReservationsScreen extends StatelessWidget {
   const ReservationsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final reservations = Provider.of<ReservationsProvider>(
+      context,
+    ).reservations;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -94,14 +23,21 @@ class ReservationsScreen extends StatelessWidget {
         elevation: 1,
         automaticallyImplyLeading: false,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: mockReservations.length,
-        itemBuilder: (context, index) {
-          final reservation = mockReservations[index];
-          return _buildReservationCard(reservation);
-        },
-      ),
+      body: reservations.isEmpty
+          ? const Center(
+              child: Text(
+                'No hay reservaciones aún.',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+            )
+          : ListView.builder(
+              padding: const EdgeInsets.all(16.0),
+              itemCount: reservations.length,
+              itemBuilder: (context, index) {
+                final reservation = reservations[index];
+                return _buildReservationCard(reservation);
+              },
+            ),
     );
   }
 
