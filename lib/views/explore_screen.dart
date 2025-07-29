@@ -1,65 +1,43 @@
 import 'package:flutter/material.dart';
-import 'package:app_raiz/views/place_details.dart';
-import 'dart:ui'; // Para usar ImageFilter.blur
+import 'package:geolocator/geolocator.dart';
+import './place_details.dart';
+import 'package:google_place/google_place.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // --- Modelo de datos simple para los lugares ---
 // (Este modelo se puede mover a su propio archivo en el futuro)
 class Place {
+  final String id;
   final String name;
+  final String address;
   final String imageUrl;
-  final double rating;
-  final String duration;
 
   Place({
+    required this.id,
     required this.name,
+    required this.address,
     required this.imageUrl,
-    this.rating = 0.0,
-    this.duration = '',
   });
+
+  //Creamos un objeto place desde el JSON de la api
+  factory Place.fromGoogleResult(dynamic json, String apiKey) {
+    String imageUrl =
+        'https://placehold.co/400x400/EFEFEF/AAAAAA?text=No+Image';
+
+    if (json.photos != null && json.photos!.isNotEmpty) {
+      final photoRef = json.photos!.first.photoReference;
+      imageUrl =
+          'https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference=$photoRef&key=$apiKey';
+    }
+
+    return Place(
+      id: json.placeId ?? '',
+      name: json.name ?? 'Nombre no disponible',
+      address: json.vicinity ?? 'Dirección no disponible',
+      imageUrl: imageUrl,
+    );
+  }
 }
-
-// --- Datos de ejemplo (Mock Data) ---
-final List<Place> popularPlaces = [
-  Place(
-    name: 'Cerro del Muerto',
-    imageUrl:
-        'https://images.unsplash.com/photo-1622023922308-3f38add65346?q=80&w=1964&auto=format&fit=crop',
-    rating: 4.1,
-  ),
-  Place(
-    name: 'Presa Calles',
-    imageUrl:
-        'https://images.unsplash.com/photo-1599146419790-2025164268e8?q=80&w=1887&auto=format&fit=crop',
-    rating: 4.5,
-  ),
-  Place(
-    name: 'Jardín de San Marcos',
-    imageUrl:
-        'https://images.unsplash.com/photo-1589218528219-1369a4412323?q=80&w=1887&auto=format&fit=crop',
-    rating: 4.8,
-  ),
-];
-
-final List<Place> recommendedPlaces = [
-  Place(
-    name: 'Centro Histórico',
-    imageUrl:
-        'https://images.unsplash.com/photo-1605332151324-a715f03a11a2?q=80&w=1935&auto=format&fit=crop',
-    duration: '4N/5D',
-  ),
-  Place(
-    name: 'Viñedos',
-    imageUrl:
-        'https://images.unsplash.com/photo-1598104334236-32451a954157?q=80&w=1887&auto=format&fit=crop',
-    duration: '2N/3D',
-  ),
-  Place(
-    name: 'Real de Asientos',
-    imageUrl:
-        'https://images.unsplash.com/photo-1634545087398-e7d85367c8b4?q=80&w=1887&auto=format&fit=crop',
-    duration: '1N/2D',
-  ),
-];
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key});
@@ -69,72 +47,172 @@ class ExploreScreen extends StatefulWidget {
 }
 
 class _ExploreScreenState extends State<ExploreScreen> {
-  int _selectedCategoryIndex = 0;
-  final List<String> _categories = ['Location', 'Food', 'Adventure', 'Culture'];
+  late Future<List<Place>> _placesFuture;
+
+  final String apiKey = dotenv.env['GOOGLE_API_KEY'] ?? '';
+  @override
+  void initState() {
+    super.initState();
+    // Al iniciar la pantalla, comenzamos el proceso de carga de datos.
+    _placesFuture = _loadPlacesData();
+  }
+
+  // --- FUNCIÓN PRINCIPAL PARA CARGAR DATOS ---
+  Future<List<Place>> _loadPlacesData() async {
+    try {
+      // 1. Obtenemos la posición actual del dispositivo.
+      final Position position = await _determinePosition();
+
+      // 2. Usamos la posición para buscar lugares cercanos.
+      return await _fetchPlaces(position.latitude, position.longitude);
+    } catch (e) {
+      // Si hay un error (ej. permisos denegados), lo lanzamos para que el FutureBuilder lo maneje.
+      print('Error al cargar datos de lugares: $e');
+      throw Exception(
+        'No se pudieron cargar los lugares. Revisa tus permisos de ubicación.',
+      );
+    }
+  }
+
+  // --- FUNCIÓN PARA OBTENER LA UBICACIÓN (de la documentación de geolocator) ---
+  Future<Position> _determinePosition() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return Future.error('Los servicios de ubicación están deshabilitados.');
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Los permisos de ubicación fueron denegados.');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+        'Los permisos de ubicación están permanentemente denegados.',
+      );
+    }
+
+    // Si llegamos aquí, los permisos están concedidos y podemos obtener la posición.
+    return await Geolocator.getCurrentPosition();
+  }
+
+  // --- FUNCIÓN PARA LLAMAR A LA API DE FOURSQUARE ---
+  Future<List<Place>> _fetchPlaces(double lat, double lon) async {
+    final googlePlace = GooglePlace(apiKey);
+
+    final result = await googlePlace.search.getNearBySearch(
+      Location(lat: lat, lng: lon),
+      5000,
+      type: "tourist_attraction",
+      language: "es",
+    );
+
+    if (result != null && result.results != null) {
+      final places = result.results!
+          .map((place) => Place.fromGoogleResult(place, apiKey))
+          .toList();
+      return places;
+    } else {
+      throw Exception('No se pudieron cargar los lugares.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: _buildAppBar(),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-        children: [
-          _buildSearchBar(),
-          const SizedBox(height: 20),
-          _buildCategoryTabs(),
-          const SizedBox(height: 30),
-          _buildSectionHeader('Popular', () {}),
-          const SizedBox(height: 15),
-          _buildHorizontalPlaceList(popularPlaces, isPopular: true),
-          const SizedBox(height: 30),
-          _buildSectionHeader('Recommended', () {}),
-          const SizedBox(height: 15),
-          _buildHorizontalPlaceList(recommendedPlaces, isPopular: false),
-        ],
+      body: SafeArea(
+        // --- USO DE FUTUREBUILDER PARA MANEJAR ESTADOS DE CARGA/ERROR/ÉXITO ---
+        child: FutureBuilder<List<Place>>(
+          future: _placesFuture,
+          builder: (context, snapshot) {
+            // ESTADO DE CARGA
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            // ESTADO DE ERROR
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Text('Error: ${snapshot.error}'),
+                ),
+              );
+            }
+            // ESTADO DE ÉXITO
+            if (snapshot.hasData) {
+              final places = snapshot.data!;
+              // Dividimos la lista para "Popular" y "Recommended" (puedes ajustar la lógica)
+              final popularPlaces = places.take(5).toList();
+              final recommendedPlaces = places.skip(5).toList();
+
+              return ListView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20.0,
+                  vertical: 20.0,
+                ),
+                children: [
+                  _buildHeader(),
+                  const SizedBox(height: 20),
+                  _buildSearchBar(),
+                  const SizedBox(height: 20),
+                  _buildCategoryTabs(),
+                  const SizedBox(height: 30),
+                  _buildSectionHeader('Popular', () {}),
+                  const SizedBox(height: 15),
+                  _buildHorizontalPlaceList(popularPlaces),
+                  const SizedBox(height: 30),
+                  _buildSectionHeader('Recommended', () {}),
+                  const SizedBox(height: 15),
+                  _buildHorizontalPlaceList(recommendedPlaces),
+                ],
+              );
+            }
+            // Estado inicial o por defecto
+            return const Center(child: Text("Iniciando..."));
+          },
+        ),
       ),
     );
   }
 
-  // ... (Los widgets _buildAppBar, _buildSearchBar, _buildCategoryTabs, y _buildSectionHeader no cambian) ...
-  PreferredSizeWidget _buildAppBar() {
-    return AppBar(
-      elevation: 0,
-      backgroundColor: Colors.white,
-      automaticallyImplyLeading: false, // Para no mostrar la flecha de regreso
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Explore',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              const Icon(Icons.location_on, color: Colors.red, size: 20),
-              const SizedBox(width: 4),
-              const Text(
-                'Aguascalientes',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+  // --- WIDGETS DE UI (MODIFICADOS PARA USAR EL NUEVO MODELO 'Place') ---
+
+  Widget _buildHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Explore',
+          style: TextStyle(color: Colors.grey, fontSize: 16),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            const Icon(Icons.location_on, color: Colors.red, size: 20),
+            const SizedBox(width: 4),
+            const Text(
+              'Ubicación Actual',
+              style: TextStyle(
+                color: Colors.black,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
               ),
-              const Text(
-                ', MX',
-                style: TextStyle(color: Colors.black, fontSize: 20),
-              ),
-              const Icon(Icons.keyboard_arrow_down, color: Colors.black),
-            ],
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
   Widget _buildSearchBar() {
+    // Sin cambios
     return TextField(
       decoration: InputDecoration(
         hintText: 'Find things to do',
@@ -152,35 +230,31 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildCategoryTabs() {
+    // Sin cambios
+    final List<String> _categories = [
+      'Location',
+      'Food',
+      'Adventure',
+      'Culture',
+    ];
     return SizedBox(
       height: 40,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: _categories.length,
         itemBuilder: (context, index) {
-          bool isSelected = _selectedCategoryIndex == index;
-          return GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedCategoryIndex = index;
-              });
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.only(right: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              decoration: BoxDecoration(
-                color: isSelected ? Colors.blue.shade50 : Colors.transparent,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                _categories[index],
-                style: TextStyle(
-                  color: isSelected
-                      ? Colors.blue.shade700
-                      : Colors.grey.shade600,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
+          return Container(
+            margin: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: index == 0 ? Colors.blue.shade50 : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              _categories[index],
+              style: TextStyle(
+                color: index == 0 ? Colors.blue.shade700 : Colors.grey.shade600,
+                fontWeight: index == 0 ? FontWeight.bold : FontWeight.normal,
               ),
             ),
           );
@@ -190,6 +264,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   }
 
   Widget _buildSectionHeader(String title, VoidCallback onSeeAll) {
+    // Sin cambios
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -209,35 +284,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
     );
   }
 
-  Widget _buildHorizontalPlaceList(
-    List<Place> places, {
-    required bool isPopular,
-  }) {
+  Widget _buildHorizontalPlaceList(List<Place> places) {
     return SizedBox(
-      height: isPopular ? 240 : 200,
+      height: 240,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: places.length,
         itemBuilder: (context, index) {
           final place = places[index];
-          return isPopular
-              ? _buildPopularCard(place)
-              : _buildRecommendedCard(place);
+          return _buildPlaceCard(place);
         },
       ),
     );
   }
 
-  // --- PASO 2: ACTUALIZAR LA TARJETA POPULAR ---
-  Widget _buildPopularCard(Place place) {
-    // Se envuelve el Container en un GestureDetector para hacerlo interactivo
+  // Tarjeta unificada para mostrar lugares (reemplaza a _buildPopularCard y _buildRecommendedCard)
+  Widget _buildPlaceCard(Place place) {
     return GestureDetector(
       onTap: () {
-        // Al tocar, se navega a la pantalla de detalles pasando el objeto 'place'
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PlaceDetailsScreen(place: place),
+            builder: (context) =>
+                PlaceDetailsScreen(place: place), // <-- Ajustar esto
           ),
         );
       },
@@ -245,7 +314,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
         width: 160,
         margin: const EdgeInsets.only(right: 15),
         child: Stack(
-          // El contenido de la tarjeta no cambia
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(20),
@@ -274,136 +342,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
               bottom: 15,
               left: 15,
               right: 15,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    place.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.5),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.star, color: Colors.yellow, size: 14),
-                        const SizedBox(width: 4),
-                        Text(
-                          place.rating.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Positioned(
-              top: 10,
-              right: 10,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(30),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                  child: Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.favorite_border,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                  ),
+              child: Text(
+                place.name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- PASO 3: ACTUALIZAR LA TARJETA RECOMENDADA ---
-  Widget _buildRecommendedCard(Place place) {
-    // También se envuelve en un GestureDetector
-    return GestureDetector(
-      onTap: () {
-        // Y se le añade la misma lógica de navegación
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PlaceDetailsScreen(place: place),
-          ),
-        );
-      },
-      child: Container(
-        width: 220,
-        margin: const EdgeInsets.only(right: 15.0),
-        child: Column(
-          // El contenido de la tarjeta no cambia
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Stack(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Image.network(
-                      place.imageUrl,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) =>
-                          const Icon(Icons.image, size: 50, color: Colors.grey),
-                    ),
-                  ),
-                  Positioned(
-                    top: 10,
-                    right: 10,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Text(
-                        place.duration,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              place.name,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
